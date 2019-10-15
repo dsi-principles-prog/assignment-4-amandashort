@@ -5,31 +5,36 @@ output: html_notebook
 
 # Adding features to the existing dataset
 
-
-```{r create feature functions}
-#First, I will standardize the rain variable to compare all amounts of rain in a given hour to the mean. Rain and other precipitation may have an impact on traffic volume.
+First, I will standardize the rain variable to compare all amounts of rain in a given hour to the mean. Rain and other precipitation may have an impact on traffic volume.
+```{r create feature function 1}
 scale2 <- function(x) (x - mean(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)
 scaled_rain <- function(df, var){
   df %>% 
   mutate_at({{var}}, list(std_rain = scale2))
-}
+  }
+```
 
-#I will now transform the holiday variable to be binary. 0 will denote a non-holiday day and 1 will be a holiday. It would be useful to compare the traffic on days that are traditionally celebrated as holidays versus non-holidays
+I will now transform the holiday variable to be binary. 0 will denote a non-holiday day and 1 will be a holiday. It would be useful to compare the traffic on days that are traditionally celebrated as holidays versus non-holidays
+```{r create feature function 2}
 holiday_new <- function(x) (ifelse(x == "None", 0, 1))
 holiday_function <- function(df, var) {
   df %>%
   mutate_at({{var}}, list(holiday_binary = holiday_new))
     
 }
+```
 
-#It would be useful to also add a column specifying the day of the week. Day of week may have an impact on the traffic volume especially comparing weekdays to weekend days.
+It would be useful to also add a column specifying the day of the week. Day of week may have an impact on the traffic volume especially comparing weekdays to weekend days.
+```{r create feature function 3}
 weekday <- function(x) (wday(x, label = TRUE))
 weekday_function <- function(df, var) {
   df %>%
     mutate_at({{var}}, list(day_of_week = weekday))
 }
+```
 
-#I also want to make a rush hour variable. In this instance, this will only be for the morning hours which I will assume are between 7 and 9. I believe that this would be a good indicator of how much traffic will be present compared to non-rush hour volume.
+I also want to make a rush hour variable. In this instance, this will only be for the morning hours which I will assume are between 7 and 9. I believe that this would be a good indicator of how much traffic will be present compared to non-rush hour volume.
+```{r create feature function 4}
 time1 <- ymd_hms("2012-10-02 07:00:00")
 time2 <- ymd_hms("2018-09-30 09:00:00")
 rush_hour1 <- function(x) (x %in% interval(time1, time2))
@@ -40,12 +45,36 @@ rush_hour_function <- function(df, var) {
 ```
 
 
+I will now add all of the new features to the data frame in order to prepare for modelling.
 ```{r add features to data}
 Metro_Traffic_eng <- Metro_Traffic1 %>%
   scaled_rain("rain_1h") %>%
   holiday_function("holiday") %>%
   weekday_function("date_time") %>%
-  rush_hour_function("date_time")
+  rush_hour_function("date_time") %>%
+  select(traffic_volume, everything())
+```
+
+
+I will test all of my new variables now to determine if they are working properly.
+
+```{r test std_rain}
+Metro_Traffic_eng %>%
+  assert(within_bounds(-4, 4), std_rain)
+
+```
+
+I will remove this value since it lies so far from the acceptable range.
+
+```{r fix std_rain}
+Metro_Traffic_eng %>%
+  mutate(std_rain = replace(std_rain, std_rain > 4, NA))
+```
+
+I want to also make sure that the binary version of the holiday variable is 0 or 1.
+```{r test holiday}
+Metro_Traffic_eng %>%
+  assert(within_bounds(0,1), holiday_binary) 
 ```
 
 
